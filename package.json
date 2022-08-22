@@ -5,6 +5,8 @@
     "prompt-sync": "^4.2.0",
     "puppeteer": "^16.1.0",
     "puppeteer-autoscroll-down": "^1.1.1",
-    "puppeteer-cluster": "^0.23.0"
+    "puppeteer-cluster": "^0.23.0",
+    "puppeteer-extra": "^3.3.4",
+    "puppeteer-extra-plugin-stealth": "^2.11.1"
   }
 }

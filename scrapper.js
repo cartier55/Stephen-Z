@@ -1,18 +1,27 @@
 const { scrollPageToBottom } = require('puppeteer-autoscroll-down')
 const { parse } = require('node-html-parser')
-const puppeteer = require('puppeteer');
+const { Cluster } = require('puppeteer-cluster');
+
+// const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-extra')
+const StealthPlugin = require('puppeteer-extra-plugin-stealth')
 const prompt = require('prompt-sync')();
 const ObjectsToCsv = require('objects-to-csv');
 
 (async () => {
     const fbPage = prompt('What FaceBook Page?');
     const postCount = prompt('How Many Post?');
+    
     const browser = await puppeteer.launch({
-        headless: true,
+        headless: false,
         defaultViewport: null,
         args: ['--start-maximized']
+        // args: ['--start-maximized', '--proxy-server=http://142.11.247.191:3128']
     });
-    const page = await browser.newPage();
+    puppeteer.use(StealthPlugin())
+
+    const page = (await browser.pages())[0]
+    // const page = await browser.newPage();
     // await page.setRequestInterception(true)
     // page.on('request', req=>{
     //     // if (req.resourceType() === 'image' || req.resourceType() === 'stylesheet'){
@@ -27,18 +36,25 @@ const ObjectsToCsv = require('objects-to-csv');
     // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
     // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
     await page.goto(`https://www.facebook.com/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    // await page.goto('https://bot.sannysoft.com')
+    // await page.waitForTimeout(5000)
+    
     await login(page)
     console.log('[+] Logged In')
     await page.goto(`https://www.facebook.com/OfficialMensHumor/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
     await scrapeArticles(page, fbPage)
     
     await browser.close();
+    // await cluster.idle();
+    // await cluster.close();
 })();
 
 
 const login = async (page) => {
     console.log('[+] Logging In')
-    await page.type('input[placeholder="Email or phone number"]', 'johndoser92@gmail.com', {delay:100})
+    // await page.type('input[placeholder="Email or phone number"]', 'johndoser92@gmail.com', {delay:100})
+    await page.waitForSelector('input[placeholder="Email or phone number"]')
+    await page.type('input[placeholder="Email or phone number"]', 'doserj62@gmail.com', {delay:100})
     await page.type('input[placeholder="Password"]', 'cJtest2202', {delay:100})
     await page.click('button[name="login"]')
     await page.waitForNavigation({waitUntil:'networkidle2'})
@@ -55,7 +71,7 @@ const login = async (page) => {
 async function scrapeArticles(
   page,
   fbPage,
-  postCount=10,
+  postCount=30,
   scrollDelay = 800,
 ) {
   let post = [];
@@ -81,7 +97,15 @@ async function scrapeArticles(
     console.log(1)
     post.length = postCount
     await getPostUrls(page, post)
-    await timeBrowser(post)
+    // for(const obj of post){
+    //     for(const key in obj){
+    //         if(key=='postUrl'){
+    activateCluster(post)
+    //         }
+
+    //     }
+    // }
+    // await timeBrowser(post)
     getPage(fbPage, post)
     await getCaption(page, post)
     await getComments(page, post)
@@ -89,19 +113,23 @@ async function scrapeArticles(
     await getReactions(page, post)
     await getPostImg(page, post)
     // await getTime(page, post) // Change to datetime obj for easy exel parseing
-    saveToFile(post, test=true)
+    saveToFile(post, test=false)
   } catch(e) { 
     console.log(e)
   }
 }
 
-const scrollDown = async (page, status)=>{
-    let scrolled = 1
-    while(status){
-        await page.evaluate(`window.scrollTo(0, window.innerHeight * ${scrolled})`);
-        await page.waitForTimeout(500);
-        scrolled++
-    }
+const activateCluster = async (posts) =>{
+    const cluster = await Cluster.launch( {puppeteerOptions: {
+        headless: false,
+        defaultViewport: null, 
+    },
+        concurrency: Cluster.CONCURRENCY_CONTEXT,
+        maxConcurrency: 2,
+    });
+    cluster.queue(posts, getTime)
+    await cluster.idle();
+    await cluster.close();
 }
 
 const getPage = (page, articleNums) =>{
@@ -248,7 +276,7 @@ const getPostImg = async (page, articleNums)=>{
 }
 
 // And timestamp
-const getTime = async (page, articleNums)=>{
+const getTime = async ({page, data: articleNums})=>{
     console.log('[+] Get Time')
     for (const obj of articleNums){
         for (const key in obj){
@@ -343,7 +371,7 @@ const saveToFile = async (list, test=false) =>{
     const csv = new ObjectsToCsv(list);
  
     // Save to file:
-    await csv.toDisk('./1000_test_post.csv');
+    await csv.toDisk('./30_stealth_test_post.csv');
    
     // Return the CSV file as string:
     // console.log(await csv.toString());
