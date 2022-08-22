@@ -1,16 +1,18 @@
+const { scrollPageToBottom } = require('puppeteer-autoscroll-down')
+const { parse } = require('node-html-parser')
 const puppeteer = require('puppeteer');
 const prompt = require('prompt-sync')();
 const ObjectsToCsv = require('objects-to-csv');
 
 (async () => {
     const fbPage = prompt('What FaceBook Page?');
+    const postCount = prompt('How Many Post?');
     const browser = await puppeteer.launch({
-        headless: false,
+        headless: true,
         defaultViewport: null,
         args: ['--start-maximized']
     });
     const page = await browser.newPage();
-    // const baseUrl = "https://coinmarketcap.com/"
     // await page.setRequestInterception(true)
     // page.on('request', req=>{
     //     // if (req.resourceType() === 'image' || req.resourceType() === 'stylesheet'){
@@ -22,112 +24,130 @@ const ObjectsToCsv = require('objects-to-csv');
     //     //     req.continue()
     //     // }
     // })
-    // await page.goto(`https://www.facebook.com/${fbPage}/photos/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
-    await page.goto(`https://www.facebook.com/OfficialMensHumor/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
-    // let img = await page.$('img[data-visualcompletion]') //Image
-    // console.log(img)
-    // await autoScroll(page)
-    await scrapeArticles(page)
-    // const commnets = await page.$x("//span[contains(text(), 'Comments')]") //Comments
-    // console.log(commnets)
-    // console.log(getText(commnets))
-    // await page.$('span.pcp91wgn') //Reactions
-    // const comments = await page.evaluate(() => {
-    //     const spanTags = Array.from(document.getElementsByXPath('table.cmc-table tbody tr td div.sc-16r8icm-0.escjiH a.cmc-link'))
-    //     return aTags.map(a=>a.getAttribute('href'))
-    // })
-    // await page.$x("//span[contains(text(), 'Shares')]") //Comments
-    // console.log(`[+] Scraping Page ${i}`);
-
+    // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
+    // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    await page.goto(`https://www.facebook.com/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    await login(page)
+    console.log('[+] Logged In')
+    await page.goto(`https://www.facebook.com/OfficialMensHumor/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    await scrapeArticles(page, fbPage)
+    
     await browser.close();
 })();
 
-async function autoScroll(page){
-    await page.evaluate(async () => {
-        await new Promise((resolve, reject) => {
-            var totalHeight = 0;
-            var distance = 100;
-            var timer = setInterval(() => {
-                var scrollHeight = document.body.scrollHeight;
-                window.scrollBy(0, distance);
-                totalHeight += distance;
-                
-                if(totalHeight >= scrollHeight - window.innerHeight){
-                    clearInterval(timer);
-                    resolve();
-                }
-            }, 100);
-        });
-    });
-}
 
-async function getText(spans){
-    for (const ele of spans){
-        // const text = ele.getProperty('innerText')
-        const text = await (await ele.getProperty('innerText')).jsonValue()
-        console.log(text)
-    }
+const login = async (page) => {
+    console.log('[+] Logging In')
+    await page.type('input[placeholder="Email or phone number"]', 'johndoser92@gmail.com', {delay:100})
+    await page.type('input[placeholder="Password"]', 'cJtest2202', {delay:100})
+    await page.click('button[name="login"]')
+    await page.waitForNavigation({waitUntil:'networkidle2'})
+    await page.screenshot({                      // Screenshot the website using defined options
+ 
+        path: "./screenshot.png",                   // Save the screenshot in current directory
+     
+        fullPage: true                              // take a fullpage screenshot
+     
+      });
+    // await page.goto()
 }
 
 async function scrapeArticles(
   page,
-//   extractItems,
-  postCount=100,
+  fbPage,
+  postCount=10,
   scrollDelay = 800,
 ) {
   let post = [];
   try {
-    let previousHeight;
     while (post.length < postCount) {
-    //   items = await page.evaluate(extractItems);
-    const content = await page.$('div[role="main"] > div.k4urcfbm')
-    post = await content.evaluate(()=>{
-        const postDivs = Array.from(document.querySelectorAll('div.du4w35lb.l9j0dhe7 div[class=lzcic4wl][role="article"]'))
-        return postDivs.map(post=>({id:post.getAttribute('aria-posinset')}))
-
+    const content = await page.$$('div[role="main"]')
+    post = await content[1].evaluate(()=>{
+        const postDivs = Array.from(document.querySelectorAll('div[role="article"]:not([aria-label])'))
+        return postDivs.map(post=>({id:post.getAttribute('aria-posinset'), html:post.innerHTML}))
     })
 
-    // const article = await page.waitForSelector(`div[aria-posinset="${postID}"]`)
-    // const postURLHandle = await article.$('a[role="link"][aria-label]')
-    // const postURL = await (await postURLHandle.getProperty('href')).jsonValue()
     
-    // const post = await content.$('div.du4w35lb.l9j0dhe7 > div[role="article"]')
-    console.log(post)
-    // items = await page.  
-    // cments = await page.$x("//span[contains(text(), 'Comments')]");
-    // getText(cments)
-    previousHeight = await page.evaluate('document.body.scrollHeight');
-    await page.evaluate('window.scrollTo(0, document.body.scrollHeight)');
-    await page.waitForFunction(`document.body.scrollHeight > ${previousHeight}`);
-    await page.waitForTimeout(scrollDelay);
-    }
+    console.log(post.length)   
+    
+    page.evaluate(async () => await window.scrollBy(0, 3000)) //Scrol to bottom of page        
+    // await page.waitForTimeout(500);
+    await page.waitForTimeout(1000 + Math.floor(Math.random() * 1000));
+
+
+    
+    
+    }  
     console.log(1)
+    post.length = postCount
     await getPostUrls(page, post)
+    await timeBrowser(post)
+    getPage(fbPage, post)
+    await getCaption(page, post)
     await getComments(page, post)
     await getShares(page, post)
     await getReactions(page, post)
     await getPostImg(page, post)
-    await getTime(page, post)
-    console.log(post)
-    saveToFile(post)
-    // console.log(items.length)
+    // await getTime(page, post) // Change to datetime obj for easy exel parseing
+    saveToFile(post, test=true)
   } catch(e) { 
     console.log(e)
   }
-//   return items;
 }
 
+const scrollDown = async (page, status)=>{
+    let scrolled = 1
+    while(status){
+        await page.evaluate(`window.scrollTo(0, window.innerHeight * ${scrolled})`);
+        await page.waitForTimeout(500);
+        scrolled++
+    }
+}
 
-const getComments = async (page, articleNums) =>{
+const getPage = (page, articleNums) =>{
+    for (const obj of articleNums){
+        obj.page = page
+    }
+}
+
+const getCaption = async (page, articleNums) => {
+    console.log('[+] Get Caption')
+
     for (const obj of articleNums){
         for(const key in obj){
-            if(key == 'id'){
-                const article = await page.$(`div[aria-posinset="${obj[key]}"]`)
-                const handle = await article.waitForFunction('document.querySelector("span.d2edcug0.hpfvmrgz.qv66sw1b.c1et5uql.lr9zc1uh.a8c37x1j.fe6kdd0r.mau55g9w.c8b282yb.keod5gw0.nxhoafnm.aigsh9s9.d3f4x2em.iv3no6db.jq4qci2q.a3bd9o3v.b1v8xokw.m9osqain").innerText')
-                // const handle = await article.waitForXPath("//span[contains(text(), 'Comments')]", {visible: true})
-                // Comment String
-                const commentNum = await (await handle[0].getProperty('innerText')).jsonValue()
-                obj['commentsNum'] = commentNum
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                // Caption String
+                const captionText = articleRoot.querySelector('div[dir="auto"] div[dir="auto"]')?.innerText
+                obj['caption'] = captionText ? captionText : null
+            }
+            
+
+        }
+    }
+}
+
+const getComments = async (page, articleNums) =>{
+    console.log('[+] Get Comments')
+
+    for (const obj of articleNums){
+        for(const key in obj){
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                const commentDiv = articleRoot.querySelector(' div[aria-expanded="true"] span[dir="auto"]')
+                if (commentDiv === null){
+                    obj['commentsNum'] = null
+
+                }else{
+                    const commentText = commentDiv.innerText
+                    // Comment Number String
+                    const commentNumText = commentText.split(' ')[0]
+                    if(commentNumText.includes('K')){
+                        obj['commentsNum'] = commentNumText.split('K')[0]
+                    }else{
+                        obj['commentsNum'] = commentNumText
+                    }
+                }
             }
             
 
@@ -137,102 +157,169 @@ const getComments = async (page, articleNums) =>{
 }
 
 const getShares = async (page, articleNums) => {
+    console.log('[+] Get Shares')
+
     for (const obj of articleNums){
         for(const key in obj){
-            if(key == 'id'){
-                const article = await page.$(`div[aria-posinset="${obj[key]}"]`)
-                const handle = await article.waitForXPath("//span[contains(text(), 'Shares')]", {visible: true})
-                // Share String
-                const shareNum = await (await handle[0].getProperty('innerText')).jsonValue()
-                obj['sharesNum'] = shareNum
-            }
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                // Search dom for span including text
+                const spans = articleRoot.querySelectorAll('div[role="button"][tabindex="0"] span[dir="auto"]')
+                const span = spans[1]
+                let shareText = span.innerText
+                // spans.forEach((span)=>{
+                //     const spanText = span.innerText
+                //     // console.log(spanText)
+                //     if(spanText.includes('Shares')){
+                //         console.log('found')
+                //         shareText = spanText
+                //     }
+                // })
+                // console.log('---------')
+                if(shareText === null){
+                    console.log('null')
+                    obj['sharesNum'] = null
+                }else if(shareText === undefined){
+                    console.log('undefined')
+                    obj['sharesNum'] = undefined
+                }else{
+                    // console.log('else')
+                    
+                    // Share Number String
+                    const shareNumText = shareText.split(' ')[0]
+                    if(shareNumText.includes('K')){
+                        obj['sharesNum'] = shareNumText.split('K')[0]
+                    }else{
+                        obj['sharesNum'] = shareNumText
+                    }
+                }
+                }
         }
     }
-    // console.log(articleNums)
 }
 
 const getReactions = async (page, articleNums) =>{
+    console.log('[+] Get Reactions')
+
     for (const obj of articleNums){
         for(const key in obj){
-            if(key == 'id'){
-                const article = await page.$(`div[aria-posinset="${obj[key]}"]`)
-                const handle = await article.$('span[aria-label="See who reacted to this"] + span[aria-hidden="true"]')
-                // Share String
-                const reactionsNum = await (await handle.getProperty('innerText')).jsonValue()
-                obj['reactionsNum'] = reactionsNum
-            }
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                // const reactionsSpan = articleRoot.querySelector('span[aria-label="See who reacted to this"] + span[aria-hidden="true"]')
+                const reactionsSpan = articleRoot.querySelector('span[aria-label="See who reacted to this"] + div span[aria-hidden="true"]')
+                if(reactionsSpan === null){
+                    obj['reactionsNum'] = null
+                    
+                }else{
+                    const reactionsText = reactionsSpan.innerText
+                    // Reactions String 
+                    if(reactionsText.includes('K')){
+                        obj['reactionsNum'] = reactionsText.split('K')[0]
+                    }else{
+                        obj['reactionsNum'] = reactionsText
+                    }             
+                }
+                }
         }
     }
-    // console.log(articleNums)
     
 }
 
 const getPostImg = async (page, articleNums)=>{
+    console.log('[+] Get Post Img')
+
     for (const obj of articleNums){
         for(const key in obj){
-            if(key == 'id'){
-                const article = await page.$(`div[aria-posinset="${obj[key]}"]`)
-                const imgDiv = await article.$('div[class="pmk7jnqg kr520xx4"]')
-                const handle = await imgDiv.$('img[alt]')
-                // Share String
-                const imgUrl = await (await handle.getProperty('src')).jsonValue()
-                obj['imgUrl'] = imgUrl
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                // Img Url
+                const img = articleRoot.querySelector('a[role="link"] img[referrerpolicy]')
+                if(img === null){
+                    obj['imgUrl'] = null
+                    
+                }else{
+                    const imgURL = img.getAttribute('src')   
+                    obj['imgUrl'] = imgURL
+                }
             }
         }
     }
-    // console.log(articleNums)
-
-
-    // for (const articleid of articleNums){
-    //     const article = await page.$(`div[aria-posinset="${articleid}"]`)
-    //     const imgDiv = await article.$('div[class="pmk7jnqg kr520xx4"]')
-    //     const handle = await imgDiv.$('img[alt]')
-    //     // Share String
-    //     console.log(await (await handle.getProperty('src')).jsonValue())
-    // }
+    
 }
 
 // And timestamp
 const getTime = async (page, articleNums)=>{
+    console.log('[+] Get Time')
     for (const obj of articleNums){
         for (const key in obj){
             if(key == 'postUrl'){
-                await page.goto(obj[key])
-                const timeStamp = await page.$eval('abbr[data-shorten]', abbr=>abbr.dataset.tooltipContent)
-                obj['timestamp'] = timeStamp
+                // await page.setRequestInterception(true)
+                // page.on('request', req=>{
+                //     // if (req.resourceType() === 'image' || req.resourceType() === 'stylesheet'){
+                //     if (req.resourceType() === 'image' ){
+                //         req.abort()
+                //     }
+                //     return Promise.resolve().then(() => req.continue()).catch(e => {})
+                //     // else{
+                //     //     req.continue()
+                //     // }
+                // })
+                if(obj[key] === null){
+                    obj['timestamp'] = null
+                }else{
+
+                    await page.goto(obj[key])
+                    // const unEditedTimeStamp = await page.$eval('abbr[data-shorten]', abbr=>abbr.dataset.tooltipContent)
+                    const unEditedTimeStamp = await page.evaluate(()=>{
+                        const abbr = document.querySelector('abbr[data-shorten]')
+                        if(abbr === null){
+                            return
+                        }
+                        return abbr.dataset.tooltipContent
+                    })
+                    if(unEditedTimeStamp === undefined){
+                        obj['timestamp'] = null
+                        
+                    }else{
+                        const timeStamp = createDate(unEditedTimeStamp)
+                        obj['timestamp'] = timeStamp
+                    }
+                }
             }
 
         }
     }
-    // for (const articleid of articleNums){
-    //     // const article = await page.waitForSelector(`div[aria-posinset="${articleid}"]`)
-    //     // const postURLHandle = await article.$('a[role="link"][aria-label]')
-    //     // const postURL = await (await postURLHandle.getProperty('href')).jsonValue()
-    //     console.log(postURL)
-    //     await page.goto(postURL)
-    //     const timeStamp = await page.$eval('abbr[data-shorten]', abbr=>abbr.dataset.tooltipContent)
-    //     await page.goBack()
-    //     console.log(timeStamp)
-    //     console.log('----------------------')
+   
+}
 
-        
-    // }
+const createDate = (unEditedDateString) =>{
+    const dateString = unEditedDateString.replace(' at', ',' )
+    const testDate = new Date(dateString)
+    console.log(`${testDate.toLocaleString()}`)
+    return testDate.toLocaleString()
 }
 
 const getPostUrls = async (page, articleNums)=>{
-
+    console.log('[+] Get Post Urls')
     for (const obj of articleNums){
         for(const key in obj){
-            if(key == 'id'){
-                const article = await page.$(`div[aria-posinset="${obj[key]}"]`)
-                const postURLHandle = await article.$('a[role="link"][aria-label]')
-                // Share String
-                const postURL = await (await postURLHandle.getProperty('href')).jsonValue()
-                obj['postUrl'] = postURL
+            if(key == 'html'){
+                const articleRoot = parse(obj[key]);
+                
+                try{
+
+                    const postURL = articleRoot.querySelector('a[role="link"][aria-label]').getAttribute('href')
+                }catch(error){
+                    console.log(articleRoot)
+                }
+                const postURL = articleRoot.querySelector('a[role="link"][aria-label]')
+                // console.log(postURL);
+                
+                obj['postUrl'] = postURL == null ? null : postURL.getAttribute('href')
             }
         }
     }
-    console.log(articleNums)
+    // console.log(articleNums)
 
     // let postUrls = []
     // for (const postId in articleNums){
@@ -244,14 +331,57 @@ const getPostUrls = async (page, articleNums)=>{
     // return postUrls
 }
 
-const saveToFile = async (list) =>{
-    
+const saveToFile = async (list, test=false) =>{
+    console.log('[+] Save To File')
+
+    if(test){
+        list.forEach(item => delete item['html'])
+        console.log(list)
+        return
+    }
+    list.forEach(item => delete item['html'])
     const csv = new ObjectsToCsv(list);
  
     // Save to file:
-    await csv.toDisk('./post_sample.csv');
+    await csv.toDisk('./1000_test_post.csv');
    
     // Return the CSV file as string:
     // console.log(await csv.toString());
 
+}
+
+const timeBrowser =  async (posts) =>{
+    const browser = await puppeteer.launch({
+        headless: false,
+        defaultViewport: null,
+        args: ['--start-maximized']
+    });
+    const page = await browser.newPage();
+
+    for (const obj of posts){
+        for (const key in obj){
+            if(key=='postUrl'){
+                page.goto(obj[key], {waitUntil : 'networkidle2' }).catch(e => void 0)
+                const unEditedTimeStamp = await page.evaluate(()=>{
+                    const abbr = document.querySelector('abbr[data-shorten]')
+                    if(abbr === null){
+                        return
+                    }
+                    return abbr.dataset.tooltipContent
+                })
+                if(unEditedTimeStamp === undefined){
+                    obj['timestamp'] = null
+                    
+                }else{
+                    const timeStamp = createDate(unEditedTimeStamp)
+                    obj['timestamp'] = timeStamp
+                }
+                // const unEditedTimeStamp = await page.$eval('abbr[data-shorten]', abbr=>abbr.dataset.tooltipContent)
+                // const timeStamp = createDate(unEditedTimeStamp)
+                // obj['timestamp'] = timeStamp
+            }
+        }
+    }
+    // console.log('TimeStamps')
+    // console.log(posts)
 }
