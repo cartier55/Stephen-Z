@@ -39,12 +39,14 @@ const ObjectsToCsv = require('objects-to-csv');
     // })
     // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
     // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
-    await page.goto(`https://www.facebook.com/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    // await page.goto(`https://www.facebook.com/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
     
-    await login(page)
-    console.log('[+] Logged In')
-    await checkForBlocking(page)
+    // await login(page)
+    // console.log('[+] Logged In')
+    // await checkForBlocking(page)
     await page.goto(`https://www.facebook.com/OfficialMensHumor/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+    await page.waitForTimeout(1000); //Random scrol delay time simulate real user
+
     await checkForBlocking(page)
     try {
         Number(postCount)
@@ -67,20 +69,25 @@ const login = async (page) => {
 }
 
 const checkForBlocking = async (page) =>{
+    await page.waitForSelector('div[role="dialog"][aria-label="Not Logged In"] div:nth-last-child(2) + div  span[dir="auto"]')
+
     const blockingCookiePopup = await page.evaluate(()=>{
-        const blocked = document.querySelector('button[data-testid="cookie-policy-manage-dialog-accept-button"')
+        const blocked = document.querySelector('div[aria-labelledby="jsc_c_2"][role="dialog"]')
         return blocked ? blocked : false
     })
-    const blockingPopup = await page.evaluate(()=>{
-        const blocked = document.querySelector('div[aria-label="You’re Temporarily Blocked"]')
+    const blockingLoginPopup = await page.evaluate(()=>{
+        // const blocked = document.querySelector('div[role="dialog"][aria-label="Not Logged In"]')
+        const blocked = document.querySelector('div[role="dialog"][aria-label="Not Logged In"] div:nth-last-child(2) + div  span[dir="auto"]')
         return blocked ? blocked : false
     })
-    // console.log(blockingPopup)
-    if(blockingPopup){
-        await page.click('div[aria-label="You’re Temporarily Blocked"] div[aria-label="OK"]')
+    console.log(blockingLoginPopup)
+    if(blockingLoginPopup){
+        console.log('blocked login')
+        await page.click('div[role="dialog"][aria-label="Not Logged In"] div:nth-last-child(2) + div  span[dir="auto"]')
     }
     if (blockingCookiePopup){
-        await page.click('button[data-testid="cookie-policy-manage-dialog-accept-button"]')
+        console.log('blocked cookie')
+        await page.click('div[aria-labelledby="jsc_c_2"][role="dialog"] div[aria-label="Only Allow Essential Cookies"] span[dir="auto"]')
         // await page.click(blockingCookiePopup)
 
     }
@@ -110,6 +117,7 @@ async function scrapeArticles(
     // posts.push(...collected_posts)
     process.stdout.clearLine(0);
     process.stdout.cursorTo(0);
+    await page.waitForTimeout(1000 + Math.floor(Math.random() * 1000)); //Random scrol delay time simulate real user
     // // console.log(posts.length < postCount)
     process.stdout.write(`Posts Collected: ${posts.length}`);
     // console.log(posts.length)
@@ -277,7 +285,8 @@ const getReactions = async (page, articleNums) =>{
         for(const key in obj){
             if(key == 'html'){
                 const articleRoot = parse(obj[key]);
-                const reactionsSpan = articleRoot.querySelector('span[aria-label="See who reacted to this"] + div span[aria-hidden="true"]')
+                // const reactionsSpan = articleRoot.querySelector('span[aria-label="See who reacted to this"] + div span[aria-hidden="true"]')
+                const reactionsSpan = articleRoot.querySelector('span[aria-label="See who reacted to this"] + span[aria-hidden="true"]')
                 if(reactionsSpan === null){
                     obj['reactionsNum'] = null
                     
@@ -402,7 +411,7 @@ const saveToFile = async (list, test=false) =>{
     const csv = new ObjectsToCsv(list);
  
     // Save to file:
-    await csv.toDisk('./1000_post_2_test_24.csv');
+    await csv.toDisk('./10_post_2_test_24.csv');
    
     // Return the CSV file as string:
     // console.log(await csv.toString());
