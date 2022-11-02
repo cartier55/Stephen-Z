@@ -23,8 +23,8 @@ const ObjectsToCsv = require('objects-to-csv');
     
     const page = (await browser.pages())[0]
     await page.authenticate({
-        username: 'lum-customer-hl_3cf9c7cc-zone-zone2',
-        password: '6gk698n7nwwl'
+        username: '',
+        password: ''
     });
     // await page.setRequestInterception(true)
     // page.on('request', req=>{
@@ -37,13 +37,8 @@ const ObjectsToCsv = require('objects-to-csv');
     //     //     req.continue()
     //     // }
     // })
-    // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'domcontentloaded' }).catch(e => void 0);
-    // await page.goto(`https://www.facebook.com/${fbPage}/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
-    // await page.goto(`https://www.facebook.com/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
+
     
-    // await login(page)
-    // console.log('[+] Logged In')
-    // await checkForBlocking(page)
     await page.goto(`https://www.facebook.com/OfficialMensHumor/`, {waitUntil : 'networkidle2' }).catch(e => void 0);
     await page.waitForTimeout(1000); //Random scrol delay time simulate real user
 
@@ -59,14 +54,7 @@ const ObjectsToCsv = require('objects-to-csv');
 })();
 
 
-const login = async (page) => {
-    console.log('[+] Logging In')
-    await page.waitForSelector('input[data-testid="royal_email"]')
-    await page.type('input[data-testid="royal_email"]', 'johndoser92@gmail.com', {delay:100})
-    await page.type('input[placeholder="Password"]', 'cJtest2202', {delay:100})
-    await page.click('button[name="login"]')
-    await page.waitForNavigation({waitUntil:'networkidle2'})
-}
+
 
 const checkForBlocking = async (page) =>{
     await page.waitForSelector('div[role="dialog"][aria-label="Not Logged In"] div:nth-last-child(2) + div  span[dir="auto"]')
