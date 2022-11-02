@@ -23,8 +23,8 @@ const ObjectsToCsv = require('objects-to-csv');
     
     const page = (await browser.pages())[0]
     await page.authenticate({
-        username: 'lum-customer-hl_3cf9c7cc-zone-zone2',
-        password: '6gk698n7nwwl'
+        username: '',
+        password: ''
     });
     // await page.setRequestInterception(true)
     // page.on('request', req=>{
